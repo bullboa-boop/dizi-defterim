@@ -1,0 +1,687 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0f172a">
+<meta name="color-scheme" content="dark">
+<meta name="description" content="Haftalık TV dizi yayın akışı ve izlediğin bölümlerin takibi.">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Dizi Defterim">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<title>Dizi Defterim</title>
+<style>
+  /* Layout: gönderdiğin sayfanın düzeni. Başlık, belirgin güncelleme kutusu, gün düğmeleri, filtreler, kart ızgarası. Altına takip ettiğin diziler eklendi. */
+  :root {
+    --bg-color: #0f172a;
+    --card-bg: #1e293b;
+    --text-main: #f8fafc;
+    --text-muted: #94a3b8;
+    --accent: #38bdf8;
+    --new-badge: #10b981;
+    --repeat-badge: #f59e0b;
+    --line: #334155;
+    --danger: #f87171;
+    --focus: #7dd3fc;
+    --font-body: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+    color-scheme: dark;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; font-family: var(--font-body); }
+
+  body {
+    background-color: var(--bg-color);
+    color: var(--text-main);
+    line-height: 1.6;
+    padding-left: max(16px, env(safe-area-inset-left, 0px));
+    padding-right: max(16px, env(safe-area-inset-right, 0px));
+    padding-block: 20px 56px;
+  }
+
+  .container { max-width: 1000px; margin: 0 auto; }
+  button, input, select { font: inherit; color: inherit; }
+  a { color: var(--accent); }
+  :focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+
+  header {
+    text-align: center;
+    padding: 25px 0 15px 0;
+    border-bottom: 1px solid var(--line);
+    margin-bottom: 25px;
+  }
+  header h1 {
+    font-size: clamp(0.9rem, 4.6vw, 2.2rem);
+    color: var(--accent);
+    margin-bottom: 15px;
+    white-space: nowrap;
+  }
+
+  .sync-box {
+    background: linear-gradient(135deg, #1e293b, #334155);
+    border: 2px solid var(--accent);
+    padding: 18px;
+    border-radius: 16px;
+    margin: 20px auto;
+    max-width: 500px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    box-shadow: 0 8px 25px rgba(56, 189, 248, 0.2);
+  }
+  #current-date-text { color: #e2e8f0; font-size: 1.1rem; font-weight: 600; }
+  #summary { color: var(--text-muted); font-size: 0.9rem; }
+  #sync { color: var(--text-muted); font-size: 0.78rem; }
+  #week-note { color: var(--text-muted); font-size: 0.8rem; text-align: center; }
+  #week-note.warn { color: var(--repeat-badge); font-weight: 600; }
+  .refresh-btn:disabled { opacity: 0.6; cursor: progress; transform: none; }
+
+  .refresh-btn {
+    background-color: var(--new-badge);
+    color: #0f172a;
+    border: none;
+    padding: 12px 28px;
+    border-radius: 30px;
+    font-weight: bold;
+    font-size: 1rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    transition: all 0.2s ease;
+    box-shadow: 0 4px 12px rgba(16, 185, 129, 0.4);
+  }
+  .refresh-btn:hover { background-color: #34d399; transform: translateY(-2px); box-shadow: 0 6px 16px rgba(16, 185, 129, 0.6); }
+  .refresh-btn:active { transform: translateY(1px); }
+
+  .days-nav { display: flex; justify-content: center; gap: 8px; margin-bottom: 20px; flex-wrap: wrap; }
+  .day-btn {
+    background-color: var(--card-bg);
+    color: var(--text-muted);
+    border: 1px solid var(--line);
+    padding: 8px 16px;
+    border-radius: 10px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    transition: all 0.2s;
+    min-height: 40px;
+  }
+  .day-btn:hover, .day-btn.active { background-color: var(--accent); color: #0f172a; font-weight: bold; border-color: var(--accent); }
+  .day-btn.today::after { content: " •"; }
+
+  .filters { display: flex; justify-content: center; gap: 10px; margin-bottom: 14px; flex-wrap: wrap; }
+  .filter-btn {
+    background-color: var(--card-bg);
+    color: var(--text-main);
+    border: 1px solid var(--line);
+    padding: 8px 16px;
+    border-radius: 20px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    font-size: 0.9rem;
+    min-height: 40px;
+  }
+  .filter-btn:hover, .filter-btn.active { background-color: #475569; color: #fff; border-color: var(--accent); }
+
+  .guide-note { text-align: center; color: var(--text-muted); font-size: 0.82rem; margin: 0 auto 25px; max-width: 640px; }
+
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(300px, 100%), 1fr)); gap: 20px; }
+
+  .day-heading { grid-column: 1 / -1; font-size: 1.15rem; color: var(--text-muted); border-bottom: 1px solid var(--line); padding-bottom: 6px; margin-top: 14px; }
+  .day-heading:first-child { margin-top: 0; }
+  .day-heading.today { color: var(--accent); }
+  .day-none { grid-column: 1 / -1; color: var(--text-muted); font-size: 0.9rem; }
+
+  .card {
+    background-color: var(--card-bg);
+    border-radius: 12px;
+    padding: 20px;
+    border: 1px solid var(--line);
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    gap: 12px;
+    animation: fadeIn 0.3s ease;
+    min-width: 0;
+  }
+  @keyframes fadeIn { from { opacity: 0.4; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+  .card:hover { transform: translateY(-4px); box-shadow: 0 10px 20px rgba(0, 0, 0, 0.3); border-color: var(--accent); }
+  .card.done { opacity: 0.8; }
+
+  .card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; gap: 8px; }
+  .channel { font-weight: bold; font-size: 0.9rem; background: rgba(56, 189, 248, 0.15); color: var(--accent); padding: 4px 10px; border-radius: 6px; }
+  .time { font-weight: bold; color: var(--text-main); font-size: 0.95rem; font-variant-numeric: tabular-nums; }
+  .title { font-size: 1.25rem; margin-bottom: 8px; color: #fff; overflow-wrap: anywhere; }
+  .desc { font-size: 0.9rem; color: var(--text-muted); }
+
+  .card-foot { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+  .badges { display: flex; gap: 6px; flex-wrap: wrap; }
+  .badge { display: inline-block; padding: 4px 10px; border-radius: 6px; font-size: 0.75rem; font-weight: bold; text-transform: uppercase; }
+  .badge.yeni { background-color: rgba(16, 185, 129, 0.2); color: var(--new-badge); }
+  .badge.tekrar { background-color: rgba(245, 158, 11, 0.2); color: var(--repeat-badge); }
+  .badge.izlendi { background-color: rgba(56, 189, 248, 0.2); color: var(--accent); }
+
+  .mini-btn {
+    background: var(--new-badge); color: #0f172a; border: none; border-radius: 20px; padding: 6px 16px;
+    font-weight: bold; font-size: 0.85rem; cursor: pointer; min-height: 36px;
+  }
+  .mini-btn:hover { background: #34d399; }
+  .mini-btn.ghost { background: transparent; color: var(--text-muted); border: 1px solid var(--line); font-weight: normal; }
+  .mini-btn.ghost:hover { background: #334155; color: #fff; }
+  .mini-btn.add { background: transparent; color: var(--accent); border: 1px solid var(--accent); }
+  .mini-btn.add:hover { background: rgba(56, 189, 248, 0.15); }
+  .mini-btn.danger { background: transparent; color: var(--danger); border: 1px solid var(--danger); }
+  .mini-btn.danger.armed { background: var(--danger); color: #0f172a; }
+  .mini-btn.sq { width: 36px; padding: 0; font-size: 1.1rem; }
+  .actions { display: flex; gap: 6px; flex-wrap: wrap; }
+
+  .empty { grid-column: 1 / -1; text-align: center; color: var(--text-muted); border: 1px dashed var(--line); border-radius: 12px; padding: 28px 16px; }
+
+  .section-title { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin: 44px 0 16px; padding-top: 24px; border-top: 1px solid var(--line); }
+  .section-title h2 { font-size: 1.4rem; color: var(--accent); }
+  .add-btn { background: var(--accent); color: #0f172a; border: none; border-radius: 30px; padding: 10px 22px; font-weight: bold; cursor: pointer; min-height: 40px; }
+  .add-btn:hover { background: #7dd3fc; }
+
+  .bar-wrap { display: flex; align-items: center; gap: 10px; }
+  .bar { flex: 1; height: 6px; border-radius: 3px; background: var(--line); overflow: hidden; }
+  .bar > span { display: block; height: 100%; background: var(--accent); }
+  .ptext { font-size: 0.82rem; color: var(--text-muted); white-space: nowrap; font-variant-numeric: tabular-nums; }
+
+  .panel { background: var(--card-bg); border: 2px solid var(--accent); border-radius: 14px; padding: 20px; margin-bottom: 22px; }
+  .panel h3 { color: var(--accent); margin-bottom: 14px; font-size: 1.15rem; }
+  .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(180px, 100%), 1fr)); gap: 14px; margin-bottom: 14px; }
+  .field { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+  .field label, .field .label { font-size: 0.85rem; font-weight: 600; color: #e2e8f0; }
+  .field input, .field select { min-height: 40px; padding: 0 10px; border-radius: 8px; border: 1px solid var(--line); background: var(--bg-color); width: 100%; min-width: 0; }
+  .days-pick { display: flex; gap: 6px; flex-wrap: wrap; }
+  .day-chip { position: relative; }
+  .day-chip input { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; margin: 0; cursor: pointer; }
+  .day-chip span { display: inline-flex; align-items: center; justify-content: center; min-width: 54px; min-height: 40px; padding: 0 10px; border-radius: 10px; border: 1px solid var(--line); background: var(--bg-color); color: var(--text-muted); }
+  .day-chip input:checked + span { background: var(--accent); border-color: var(--accent); color: #0f172a; font-weight: bold; }
+  .day-chip input:focus-visible + span { outline: 2px solid var(--focus); outline-offset: 2px; }
+  .form-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 16px; }
+  .error { color: var(--danger); font-size: 0.85rem; margin-top: 10px; }
+
+  .toast {
+    position: fixed;
+    bottom: calc(25px + env(safe-area-inset-bottom, 0px));
+    right: max(25px, env(safe-area-inset-right, 0px));
+    background-color: var(--new-badge);
+    color: #0f172a;
+    padding: 14px 22px;
+    border-radius: 10px;
+    font-weight: bold;
+    box-shadow: 0 5px 20px rgba(0,0,0,0.5);
+    opacity: 0;
+    transition: opacity 0.3s ease;
+    pointer-events: none;
+    z-index: 1000;
+  }
+  .toast.show { opacity: 1; }
+
+  @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; scroll-behavior: auto !important; } }
+
+  [hidden] { display: none !important; }
+  body { padding-top: max(20px, env(safe-area-inset-top, 0px)); padding-bottom: max(56px, env(safe-area-inset-bottom, 0px)); }
+  .refresh-btn.install { background-color: var(--accent); box-shadow: 0 4px 12px rgba(56, 189, 248, 0.4); }
+  .refresh-btn.install:hover { background-color: #7dd3fc; box-shadow: 0 6px 16px rgba(56, 189, 248, 0.6); }
+  .backup-note { color: var(--text-muted); font-size: 0.9rem; margin-bottom: 14px; }
+  .backup-actions { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; }
+  #backup-info { color: var(--text-muted); font-size: 0.85rem; }
+  #backup-msg { margin-top: 10px; font-size: 0.9rem; color: var(--new-badge); }
+  #backup-msg.is-error { color: var(--danger); }
+  #import-panel { margin-top: 14px; padding: 14px; border: 1px dashed var(--accent); border-radius: 10px; display: flex; flex-direction: column; gap: 10px; }
+  .hint-ios { color: var(--text-muted); font-size: 0.85rem; text-align: center; }
+  .chan-list { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin-top: 10px; }
+  .chan-item { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border: 1px solid var(--line); border-radius: 20px; background: var(--card-bg); font-size: 0.82rem; text-decoration: none; color: var(--text-main); min-height: 36px; }
+  .chan-item:hover { border-color: var(--accent); }
+  .chan-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--line); display: inline-block; }
+  .chan-dot.ok { background: var(--new-badge); }
+  .chan-dot.part { background: var(--repeat-badge); }
+  .chan-dot.fail { background: var(--danger); }
+  #chan-info { margin-top: 8px; font-size: 0.8rem; }
+  .src-link { font-size: 0.8rem; }
+</style>
+</head>
+<body>
+<div class="container">
+  <header>
+    <h1>📺 Bugün TV'de Hangi Diziler Var?</h1>
+
+    <div class="sync-box">
+      <span id="current-date-text">Tarih yükleniyor...</span>
+      <span id="summary"></span>
+      <span id="week-note" role="status"></span>
+      <button class="refresh-btn" type="button" data-action="sync" id="main-update-btn">🔄 Yayın Akışını Güncelle</button>
+      <button class="refresh-btn install" id="install-btn" type="button" hidden>📲 Uygulamayı Yükle</button>
+      <p class="hint-ios" id="ios-hint" hidden>iPhone'da: Paylaş düğmesi → Ana Ekrana Ekle</p>
+    </div>
+  </header>
+
+  <div class="days-nav" id="days-nav"></div>
+
+  <div class="filters" id="filters">
+    <button class="filter-btn active" type="button" data-action="filter" data-filter="all">Tümü</button>
+    <button class="filter-btn" type="button" data-action="filter" data-filter="yeni">Sadece Yeni Bölümler</button>
+    <button class="filter-btn" type="button" data-action="filter" data-filter="aksam">Akşam Kuşağı (20:00+)</button>
+    <button class="filter-btn" type="button" data-action="filter" data-filter="gunduz">Gündüz / Tekrar</button>
+  </div>
+
+  <div class="guide-note">
+    <p>Akış, kanalların kendi yayın akışı sayfalarına göre güncellenir. Maç, özel yayın ve bölüm arası verilmesi saatleri değiştirebilir.</p>
+    <div class="chan-list" id="chan-list"></div>
+    <button class="mini-btn add" type="button" data-action="channels-update" id="chan-btn" style="margin-top:10px">🔄 Kanal sayfalarından güncelle</button>
+    <p id="chan-info" role="status"></p>
+  </div>
+
+  <div class="grid" id="series-grid"></div>
+
+</div>
+
+<div class="toast" id="toast" role="status"></div>
+
+<script>
+(function () {
+  var DAYS = [1, 2, 3, 4, 5, 6, 0];
+  var DAY_SHORT = { 1: "Pzt", 2: "Sal", 3: "Çar", 4: "Per", 5: "Cum", 6: "Cmt", 0: "Paz" };
+  var DAY_FULL = { 1: "Pazartesi", 2: "Salı", 3: "Çarşamba", 4: "Perşembe", 5: "Cuma", 6: "Cumartesi", 0: "Pazar" };
+  var MONTHS = ["Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran", "Temmuz", "Ağustos", "Eylül", "Ekim", "Kasım", "Aralık"];
+
+  /* 16–22 Kasım 2026 haftasının yayın akışı. type: "yeni" ya da "tekrar".
+     WEEK_START: bu listenin ait olduğu haftanın pazartesisi (YYYY-MM-DD).
+     VERIFIED: o hafta için haber/kanal kaynaklarından günü teyit edilen günler (1 = Pazartesi ... 0 = Pazar).
+     Teyit edilmeyen günler kanalların düzenli haftalık akışıdır; maç, bölüm arası vb. durumu değiştirebilir. */
+  var WEEK_START = "2026-11-16";
+  var WEEK_LABEL = "16–22 Kasım 2026";
+  var VERIFIED = [1, 2];
+  var GUIDE = {
+    1: [
+      { name: "Uzak Şehir", channel: "KANAL D", time: "20:00" },
+      { name: "Altı Üstü İstanbul", channel: "ATV", time: "20:00", note: "21. bölüm." },
+      { name: "Evlilik Güzeldir", channel: "TRT 1", time: "20:00" }
+    ],
+    2: [
+      { name: "Mehmed: Fetihler Sultanı", channel: "TRT 1", time: "20:00" },
+      { name: "Tuzlu Kahve", channel: "STAR TV", time: "20:00", note: "Yeni bölüm bilgisini kanaldan teyit et." },
+      { name: "Haysiyet", channel: "KANAL D", time: "20:00" },
+      { name: "Anne Yarısı", channel: "NOW", time: "20:00" }
+    ],
+    3: [
+      { name: "Sevdan Bir Ateş", channel: "SHOW TV", time: "20:00" },
+      { name: "Yeraltı", channel: "NOW", time: "20:00" }
+    ],
+    4: [
+      { name: "Muhtemel Aşk", channel: "SHOW TV", time: "20:00" },
+      { name: "Sevdiğim Sensin", channel: "STAR TV", time: "20:00" },
+      { name: "Halef: Köklerin Çağrısı", channel: "NOW", time: "20:00" },
+      { name: "Güneşin Doğduğu Yer", channel: "ATV", time: "20:00" }
+    ],
+    5: [
+      { name: "Kızılcık Şerbeti", channel: "SHOW TV", time: "20:00" },
+      { name: "Taşacak Bu Deniz", channel: "TRT 1", time: "20:00" },
+      { name: "Ömür Usta", channel: "NOW", time: "20:00", type: "tekrar", note: "Tekrar bölümü. Yeni bölümü Pazar akşamı." },
+      { name: "Güller ve Günahlar", channel: "KANAL D", time: "16:45", type: "tekrar", note: "Gündüz kuşağı tekrar bölümü. Yeni bölümü Cumartesi akşamı." }
+    ],
+    6: [
+      { name: "Gönül Dağı", channel: "TRT 1", time: "20:00" },
+      { name: "Başkalarının Hayatı", channel: "STAR TV", time: "20:00" },
+      { name: "Güller ve Günahlar", channel: "KANAL D", time: "20:00" }
+    ],
+    0: [
+      { name: "Kod Adı: Kırlangıç", channel: "TRT 1", time: "17:30" },
+      { name: "Teşkilat", channel: "TRT 1", time: "20:00" },
+      { name: "Ömür Usta", channel: "NOW", time: "20:00" },
+      { name: "Daha 17", channel: "KANAL D", time: "20:00" }
+    ]
+  };
+
+  var CHANNELS = [
+    { key: "KANAL D", site: "https://www.kanald.com.tr/", page: function () { return "https://www.kanald.com.tr/yayin-akisi"; } },
+    { key: "SHOW TV", site: "https://www.showtv.com.tr/", page: function () { return "https://www.showtv.com.tr/yayin-akisi"; } },
+    { key: "ATV", site: "https://www.atv.com.tr/", page: function () { return "https://www.atv.com.tr/yayin-akisi"; } },
+    { key: "STAR TV", site: "https://www.startv.com.tr/", page: function () { return "https://www.startv.com.tr/yayin-akisi"; } },
+    { key: "NOW", site: "https://www.nowtv.com.tr/", page: function () { return "https://www.nowtv.com.tr/yayin-akisi"; } },
+    { key: "TV8", site: "https://www.tv8.com.tr/", page: function () { return "https://www.tv8.com.tr/yayin-akisi"; } },
+    { key: "TRT 1", site: "https://www.trthaber.com/yayin-akisi/trt-1/", page: function () {
+        var d = new Date();
+        return "https://www.trthaber.com/yayin-akisi/trt-1/" + String(d.getDate()).padStart(2, "0") + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + d.getFullYear();
+      } }
+  ];
+  var CH_KEY = "dizi-defterim-kanal-v1";
+  var chanState = {};
+  var chanBusy = false;
+
+  var filter = "all";
+  var selectedDay = new Date().getDay();
+  var toastTimer = null;
+
+  var $ = function (s) { return document.querySelector(s); };
+
+  function el(tag, props) {
+    var n = document.createElement(tag);
+    props = props || {};
+    Object.keys(props).forEach(function (k) {
+      var v = props[k];
+      if (v === false || v == null) return;
+      if (k === "class") n.className = v;
+      else if (k === "text") n.textContent = v;
+      else n.setAttribute(k, v === true ? "" : v);
+    });
+    for (var i = 2; i < arguments.length; i++) {
+      var kids = [].concat(arguments[i]);
+      for (var j = 0; j < kids.length; j++) {
+        var c = kids[j];
+        if (c == null || c === false) continue;
+        n.append(c.nodeType ? c : document.createTextNode(String(c)));
+      }
+    }
+    return n;
+  }
+
+  function now() { return new Date(); }
+  function todayKey() {
+    var d = now();
+    return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+  }
+  function norm(s) { return String(s || "").toLocaleLowerCase("tr").trim(); }
+  function byTime(a, b) {
+    return (a.time || "99:99").localeCompare(b.time || "99:99") || a.name.localeCompare(b.name, "tr");
+  }
+  function uid() { return "d" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
+  function toast(msg) {
+    var t = $("#toast");
+    t.textContent = msg;
+    t.classList.add("show");
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { t.classList.remove("show"); }, 2500);
+  }
+
+  /* ---------- Kanal sayfalarından güncelleme ---------- */
+  function loadChan() {
+    try { var o = JSON.parse(localStorage.getItem(CH_KEY) || "{}"); chanState = o && typeof o === "object" ? o : {}; } catch (e) { chanState = {}; }
+  }
+  function saveChan() { try { localStorage.setItem(CH_KEY, JSON.stringify(chanState)); } catch (e) {} }
+  function chanOf(name) {
+    for (var i = 0; i < CHANNELS.length; i++) if (CHANNELS[i].key === name) return CHANNELS[i];
+    return null;
+  }
+  function timeFor(g) {
+    var st = chanState[g.channel];
+    var t = st && st.dayKey === todayKey() && st.times && st.times[norm(g.name)];
+    return t || g.time;
+  }
+  function pageText(html) {
+    return html.replace(/<script[\s\S]*?<\/script>/gi, " ").replace(/<style[\s\S]*?<\/style>/gi, " ").replace(/<[^>]+>/g, " ").replace(/&nbsp;/g, " ").replace(/\s+/g, " ");
+  }
+  function matchTimes(channel, text) {
+    var found = {};
+    var low = text.toLocaleLowerCase("tr");
+    var seen = {};
+    DAYS.forEach(function (d) {
+      GUIDE[d].forEach(function (g) {
+        if (g.channel !== channel) return;
+        var k = norm(g.name);
+        if (seen[k]) return;
+        seen[k] = true;
+        var i = low.indexOf(k);
+        if (i === -1) return;
+        var m = low.slice(Math.max(0, i - 12), i).match(/(\d{1,2})[:.](\d{2})\s*$/) ||
+                low.slice(i + k.length, i + k.length + 12).match(/^\s*(\d{1,2})[:.](\d{2})/);
+        if (!m) return;
+        var h = Number(m[1]), mi = Number(m[2]);
+        if (h > 23 || mi > 59) return;
+        found[k] = String(h).padStart(2, "0") + ":" + String(mi).padStart(2, "0");
+      });
+    });
+    return found;
+  }
+  var PROXIES = [
+    function (u) { return "https://api.allorigins.win/raw?url=" + encodeURIComponent(u); },
+    function (u) { return "https://corsproxy.io/?url=" + encodeURIComponent(u); }
+  ];
+  function getText(url) {
+    var ctl = typeof AbortController === "function" ? new AbortController() : null;
+    var timer = setTimeout(function () { if (ctl) ctl.abort(); }, 9000);
+    return fetch(url, { mode: "cors", signal: ctl ? ctl.signal : undefined }).then(function (r) {
+      clearTimeout(timer);
+      if (!r.ok) throw new Error("http " + r.status);
+      return r.text();
+    }, function (e) { clearTimeout(timer); throw e; });
+  }
+  function fetchChannel(ch) {
+    var target = ch.page();
+    var urls = [target].concat(PROXIES.map(function (p) { return p(target); }));
+    function attempt(i) {
+      if (i >= urls.length) return Promise.reject(new Error("hepsi basarisiz"));
+      return getText(urls[i]).catch(function () { return attempt(i + 1); });
+    }
+    return attempt(0).then(function (html) {
+      var times = matchTimes(ch.key, pageText(html));
+      var n = Object.keys(times).length;
+      chanState[ch.key] = { checkedAt: Date.now(), dayKey: todayKey(), status: n ? "ok" : "part", times: times, count: n };
+    }, function () {
+      chanState[ch.key] = { checkedAt: Date.now(), dayKey: todayKey(), status: "fail", times: {}, count: 0 };
+    });
+  }
+  function updateChannels() {
+    if (chanBusy) return;
+    chanBusy = true;
+    $("#chan-btn").disabled = true;
+    $("#main-update-btn").disabled = true;
+    $("#chan-info").textContent = "Kanal sayfaları kontrol ediliyor…";
+    Promise.all(CHANNELS.map(fetchChannel)).then(function () {
+      chanBusy = false;
+      $("#chan-btn").disabled = false;
+      $("#main-update-btn").disabled = false;
+      saveChan();
+      renderAll();
+      var ok = 0;
+      CHANNELS.forEach(function (c) { var s = chanState[c.key]; if (s && s.status === "ok") ok++; });
+      var part = 0;
+      CHANNELS.forEach(function (c) { var s2 = chanState[c.key]; if (s2 && s2.status === "part") part++; });
+      toast(ok ? "✅ " + ok + " kanaldan saat güncellendi" : part ? "Sayfalar okundu ama saat bulunamadı" : "Sayfalar okunamadı, kanal düğmesinden aç");
+    });
+  }
+  function renderChannels() {
+    var box = $("#chan-list");
+    box.replaceChildren();
+    var last = 0;
+    CHANNELS.forEach(function (c) {
+      var s = chanState[c.key];
+      var cls = s ? (s.status === "ok" ? "ok" : s.status === "part" ? "part" : "fail") : "";
+      if (s && s.checkedAt > last) last = s.checkedAt;
+      var tip = !s ? "Henüz kontrol edilmedi" : s.status === "ok" ? s.count + " dizinin saati sayfadan alındı" : s.status === "part" ? "Sayfa okundu, eşleşen dizi bulunamadı" : "Sayfa okunamadı (tarayıcı engelledi), kanalın sayfasını aç";
+      box.append(el("a", { class: "chan-item", href: c.page(), target: "_blank", rel: "noopener", title: tip, "aria-label": c.key + " yayın akışı sayfası. " + tip },
+        el("span", { class: "chan-dot " + cls, "aria-hidden": "true" }), c.key + " ↗"));
+    });
+    $("#chan-info").textContent = last
+      ? "Son kontrol: " + new Date(last).toLocaleString("tr-TR", { dateStyle: "medium", timeStyle: "short" }) + ". Okunamayan kanalın sayfasını yukarıdan açabilirsin."
+      : "Henüz kanal sayfalarından güncelleme yapılmadı.";
+  }
+
+  /* ---------- Yardımcılar ---------- */
+  function entriesFor(day) {
+    return GUIDE[day].map(function (g) {
+      return { name: g.name, channel: g.channel, time: timeFor(g), type: g.type || "yeni", note: g.note || "" };
+    }).sort(byTime);
+  }
+
+  function weekStatus() {
+    var st = new Date(WEEK_START + "T00:00:00");
+    var en = new Date(st.getTime() + 7 * 86400000);
+    var n = now();
+    return n >= st && n < en ? "ok" : "stale";
+  }
+  function renderWeekNote() {
+    var box = $("#week-note");
+    if (weekStatus() === "ok") {
+      box.className = "";
+      box.textContent = "Liste: " + WEEK_LABEL + " haftası";
+    } else {
+      box.className = "warn";
+      box.textContent = "⚠️ Bu liste " + WEEK_LABEL + " haftasına ait. Yeni hafta için güncellenmesi gerekiyor.";
+    }
+  }
+
+  /* ---------- Çizim ---------- */
+  function renderDateText() {
+    var d = now();
+    $("#current-date-text").textContent = "📅 Bugün: " + d.getDate() + " " + MONTHS[d.getMonth()] + " " + d.getFullYear() + " (" + DAY_FULL[d.getDay()] + ")";
+  }
+
+  function renderDays() {
+    var box = $("#days-nav");
+    var todayDow = now().getDay();
+    box.replaceChildren();
+    box.append(el("button", {
+      class: "day-btn" + (selectedDay === "week" ? " active" : ""),
+      type: "button", "data-action": "day", "data-day": "week",
+      "aria-pressed": selectedDay === "week" ? "true" : "false",
+      text: "📆 Tüm Hafta"
+    }));
+    DAYS.forEach(function (d) {
+      box.append(el("button", {
+        class: "day-btn" + (d === selectedDay ? " active" : "") + (d === todayDow ? " today" : ""),
+        type: "button", "data-action": "day", "data-day": String(d),
+        "aria-pressed": d === selectedDay ? "true" : "false",
+        text: DAY_FULL[d]
+      }));
+    });
+  }
+
+  function renderFilters() {
+    document.querySelectorAll("#filters .filter-btn").forEach(function (b) {
+      b.classList.toggle("active", b.getAttribute("data-filter") === filter);
+    });
+  }
+
+  function passes(e) {
+    if (filter === "yeni") return e.type === "yeni";
+    if (filter === "aksam") return (e.time || "") >= "20:00";
+    if (filter === "gunduz") return e.type === "tekrar" || (e.time || "") < "20:00";
+    return true;
+  }
+
+  function buildCard(e, day) {
+    var desc = e.note || (e.type === "tekrar" ? "Tekrar bölümü." : "Yeni bölümüyle " + DAY_FULL[day] + " akşamı " + e.channel + "'da.");
+    var ch = chanOf(e.channel);
+    return el("div", { class: "card" },
+      el("div", {},
+        el("div", { class: "card-header" },
+          el("span", { class: "channel", text: e.channel || "—" }),
+          el("span", { class: "time", text: e.time || "" })),
+        el("h2", { class: "title", text: e.name }),
+        el("p", { class: "desc", text: desc }),
+        ch ? el("a", { class: "src-link", href: ch.site, target: "_blank", rel: "noopener", text: e.channel + " sayfası ↗" }) : null),
+      el("div", { class: "card-foot" },
+        el("div", { class: "badges" }, el("span", { class: "badge " + (e.type === "tekrar" ? "tekrar" : "yeni"), text: e.type === "tekrar" ? "Tekrar" : "Yeni Bölüm" }))));
+  }
+
+  function renderCards() {
+    var grid = $("#series-grid");
+    grid.replaceChildren();
+    var total = 0;
+    var todayDow = now().getDay();
+
+    if (selectedDay === "week") {
+      DAYS.forEach(function (d) {
+        var list = entriesFor(d).filter(passes);
+        total += list.length;
+        grid.append(el("h3", { class: "day-heading" + (d === todayDow ? " today" : ""), text: DAY_FULL[d] + (d === todayDow ? " · bugün" : "") }));
+        if (!list.length) grid.append(el("p", { class: "day-none", text: "Bu filtreye uyan dizi yok." }));
+        list.forEach(function (e) { grid.append(buildCard(e, d)); });
+      });
+      $("#summary").textContent = "Haftalık program: " + total + " yayın";
+      return;
+    }
+
+    var all = entriesFor(selectedDay);
+    var list = all.filter(passes);
+    $("#summary").textContent = DAY_FULL[selectedDay] + ": " + all.length + " yayın" +
+      (VERIFIED.indexOf(selectedDay) !== -1 ? " · kaynaklardan teyit edildi" : " · düzenli haftalık akış");
+
+    if (!list.length) {
+      grid.append(el("div", { class: "empty", text: "Bu filtreye uyan dizi yok." }));
+      return;
+    }
+    list.forEach(function (e) { grid.append(buildCard(e, selectedDay)); });
+  }
+
+  function renderAll() {
+    renderDateText();
+    renderDays();
+    renderFilters();
+    renderCards();
+    renderChannels();
+    renderWeekNote();
+  }
+
+  function syncToday() {
+    selectedDay = now().getDay();
+    renderAll();
+    toast("✅ Bugüne odaklanıldı!");
+  }
+
+  document.addEventListener("click", function (e) {
+    var t = e.target.closest("[data-action]");
+    if (!t) return;
+    var a = t.getAttribute("data-action");
+    if (a === "sync") { syncToday(); updateChannels(); }
+    else if (a === "channels-update") updateChannels();
+    else if (a === "day") {
+      var dv = t.getAttribute("data-day");
+      selectedDay = dv === "week" ? "week" : Number(dv);
+      renderDays();
+      renderCards();
+    }
+    else if (a === "filter") { filter = t.getAttribute("data-filter"); renderFilters(); renderCards(); }
+  });
+
+  /* ---------- Başlangıç ---------- */
+  loadChan();
+  renderAll();
+
+  var lastKey = todayKey();
+  setInterval(function () {
+    var k = todayKey();
+    if (k !== lastKey) { lastKey = k; selectedDay = now().getDay(); renderAll(); }
+  }, 60000);
+})();
+</script>
+
+<script>
+(function () {
+  if ("serviceWorker" in navigator) {
+    window.addEventListener("load", function () {
+      navigator.serviceWorker.register("sw.js").catch(function () {});
+    });
+  }
+  var btn = document.getElementById("install-btn");
+  var hint = document.getElementById("ios-hint");
+  var standalone = (window.matchMedia && window.matchMedia("(display-mode: standalone)").matches) || window.navigator.standalone;
+  if (standalone) return;
+  var deferred = null;
+  window.addEventListener("beforeinstallprompt", function (e) {
+    e.preventDefault();
+    deferred = e;
+    btn.hidden = false;
+  });
+  btn.addEventListener("click", function () {
+    if (!deferred) return;
+    deferred.prompt();
+    deferred.userChoice.then(function () { deferred = null; btn.hidden = true; });
+  });
+  window.addEventListener("appinstalled", function () { btn.hidden = true; });
+  var ua = navigator.userAgent;
+  var ios = /iphone|ipad|ipod/i.test(ua) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+  if (ios) hint.hidden = false;
+})();
+</script>
+
+</body>
+</html>
